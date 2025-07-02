@@ -8,6 +8,7 @@ import {
 import { supabase } from "./lib/supabaseClient";
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   const [session, setSession] = useState(null);
@@ -43,6 +44,7 @@ function App() {
           path="/login"
           element={session ? <Navigate to="/" /> : <LoginPage />}
         />
+        <Route path="/profile" element={<ProfilePage session={session} />} />
       </Routes>
     </Router>
   );

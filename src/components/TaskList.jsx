@@ -1,4 +1,3 @@
-// Modernizovaný TaskList.jsx s kartami + čas za den/měsíc
 import { useEffect, useState } from "react";
 import {
   Grid,
@@ -23,36 +22,32 @@ import EditIcon from "@mui/icons-material/Edit";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { supabase } from "../lib/supabaseClient";
+import { useDataRefresh } from "../contexts/DataRefreshContext";
 
 export default function TaskList({ user }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [openDialog, setOpenDialog] = useState(false);
   const [newTaskName, setNewTaskName] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
-
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
 
-  const formatTimestamp = (date) => date.toISOString(); // můžeš přidat i `slice(0, 19)` bez `Z`
+  const { refreshKey, refresh } = useDataRefresh();
+
+  useEffect(() => {
+    fetchTasks();
+  }, [refreshKey]);
+
+  const formatTimestamp = (date) => date.toISOString();
 
   const fetchTimeSummary = async (taskId) => {
     const today = new Date();
-
     const startOfDay = new Date(today);
     startOfDay.setHours(0, 0, 0, 0);
-
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    console.log("Zasílám RPC s:", {
-      task_id_input: taskId,
-      user_id_input: user.id,
-      start_day: formatTimestamp(startOfDay),
-      start_month: formatTimestamp(startOfMonth),
-    });
 
     const { data, error } = await supabase.rpc("get_task_time_summary", {
       task_id_input: taskId,
@@ -61,16 +56,12 @@ export default function TaskList({ user }) {
       start_month: formatTimestamp(startOfMonth),
     });
 
-    console.log("Výstup z RPC:", data);
-
     if (error) {
       console.error("Chyba při RPC:", error.message);
       return { daily: 0, monthly: 0 };
     }
 
-    // pokud data je pole, použij data[0]
     const result = data?.[0] ?? {};
-
     return {
       daily: result.daily ?? 0,
       monthly: result.monthly ?? 0,
@@ -98,12 +89,7 @@ export default function TaskList({ user }) {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
   const formatTime = (seconds) => {
-    console.log(seconds);
     const total = parseInt(seconds, 10);
     if (isNaN(total)) return "0h 0m";
     const h = Math.floor(total / 3600);
@@ -117,27 +103,23 @@ export default function TaskList({ user }) {
       console.error("Chyba při mazání:", error.message);
     } else {
       setTasks((prev) => prev.filter((task) => task.id !== taskId));
+      refresh(); // přidáno
     }
   };
 
   const handleAddTask = async () => {
     if (!newTaskName) return;
 
-    const { data, error } = await supabase
-      .from("tasks")
-      .insert([
-        {
-          name: newTaskName,
-          description: newTaskDescription,
-          user_id: user.id,
-        },
-      ])
-      .select();
+    const { error } = await supabase.from("tasks").insert({
+      name: newTaskName,
+      description: newTaskDescription,
+      user_id: user.id,
+    });
 
     if (error) {
       console.error("Chyba při vytváření úkolu:", error.message);
     } else {
-      fetchTasks();
+      refresh(); // přidáno
       setNewTaskName("");
       setNewTaskDescription("");
       setOpenDialog(false);
@@ -152,16 +134,15 @@ export default function TaskList({ user }) {
   };
 
   const handleUpdateTask = async () => {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("tasks")
       .update({ name: editName, description: editDescription })
-      .eq("id", editingTask.id)
-      .select();
+      .eq("id", editingTask.id);
 
     if (error) {
       console.error("Chyba při aktualizaci úkolu:", error.message);
     } else {
-      fetchTasks();
+      refresh(); // přidáno
       setEditDialogOpen(false);
     }
   };
@@ -169,7 +150,7 @@ export default function TaskList({ user }) {
   if (loading) return <CircularProgress />;
 
   return (
-    <Box>
+    <Box sx={{ mb: 4, width: "100%" }}>
       <Box
         display="flex"
         justifyContent="space-between"

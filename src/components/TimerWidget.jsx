@@ -1,4 +1,3 @@
-// TimerWidget.jsx – robustní časovač s persistencí přes Supabase
 import { useEffect, useState, useRef } from "react";
 import {
   Box,
@@ -12,6 +11,7 @@ import {
   Stack,
 } from "@mui/material";
 import { supabase } from "../lib/supabaseClient";
+import { useDataRefresh } from "../contexts/DataRefreshContext";
 
 export default function TimerWidget({ user, tasks }) {
   const [selectedTaskId, setSelectedTaskId] = useState("");
@@ -19,11 +19,11 @@ export default function TimerWidget({ user, tasks }) {
   const [startTime, setStartTime] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef(null);
+  const { refreshKey, refresh } = useDataRefresh();
 
-  // Při načtení komponenty: zkontroluj běžící záznam
   useEffect(() => {
     const checkRunningEntry = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("time_entries")
         .select("id, task_id, start_time")
         .eq("user_id", user.id)
@@ -40,9 +40,8 @@ export default function TimerWidget({ user, tasks }) {
     };
 
     checkRunningEntry();
-  }, [user.id]);
+  }, [user.id, tasks]);
 
-  // Interval pro počítání běžícího času
   useEffect(() => {
     if (startTime) {
       intervalRef.current = setInterval(() => {
@@ -72,6 +71,7 @@ export default function TimerWidget({ user, tasks }) {
     } else {
       setRunningEntryId(data.id);
       setStartTime(new Date(data.start_time));
+      refresh(); // přidáno
     }
   };
 
@@ -95,6 +95,7 @@ export default function TimerWidget({ user, tasks }) {
       setStartTime(null);
       setSelectedTaskId("");
       clearInterval(intervalRef.current);
+      refresh(); // přidáno
     }
   };
 
@@ -106,7 +107,7 @@ export default function TimerWidget({ user, tasks }) {
   };
 
   return (
-    <Paper sx={{ p: 3, mb: 4 }} elevation={4}>
+    <Paper sx={{ p: 3, mb: 4, width: "100%" }} elevation={4}>
       <Stack spacing={2}>
         <Typography variant="h6">Časomíra</Typography>
         <FormControl fullWidth>
