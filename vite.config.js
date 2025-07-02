@@ -4,5 +4,5 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/Timora/", // musí být přesně podle názvu repo
+  base: "/timora/", // musí být přesně podle názvu repo
 });
