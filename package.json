@@ -1,10 +1,10 @@
 {
-  "name": "timora",
+  "name": "Timora",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "homepage": "https://scholzovalucie.github.io/Timora",
-"scripts": {
+  "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
