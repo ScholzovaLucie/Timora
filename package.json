@@ -18,10 +18,14 @@
     "@mui/x-charts": "^8.6.0",
     "@supabase/supabase-js": "^2.50.2",
     "date-fns": "^4.1.0",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.5.25",
+    "pdfmake": "^0.2.20",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.3",
-    "recharts": "^3.0.2"
+    "recharts": "^3.0.2",
+    "roboto-regular": "^1.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
