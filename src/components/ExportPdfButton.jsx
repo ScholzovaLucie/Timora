@@ -25,6 +25,12 @@ export default function ExportPdfButton({ user }) {
       .lte("start_time", endOfMonth.toISOString())
       .order("start_time", { ascending: true });
 
+    const { data: profile, errorProfile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
     if (error) {
       console.error("Chyba při načítání záznamů:", error.message);
       return;
@@ -64,7 +70,7 @@ export default function ExportPdfButton({ user }) {
     const docDefinition = {
       content: [
         { text: "Pracovní výkaz", style: "header" },
-        { text: `Jméno: ${user.user_metadata?.full_name || user.email}` },
+        { text: `Jméno: ${profile?.name || user.email}` },
         { text: `Měsíc: ${format(today, "LLLL yyyy", { locale: cs })}` },
         {
           style: "tableStyle",
