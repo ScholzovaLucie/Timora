@@ -1,4 +1,11 @@
-import { Button } from "@mui/material";
+import {
+  Button,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+} from "@mui/material";
+import { useState } from "react";
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
 import { cs } from "date-fns/locale";
@@ -10,12 +17,14 @@ import { supabase } from "../lib/supabaseClient";
 pdfMake.vfs = pdfFonts.vfs;
 
 export default function ExportPdfButton({ user }) {
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+
   const handleExport = async () => {
     const today = new Date();
     const month = today.getMonth();
     const year = today.getFullYear();
-    const startOfMonth = new Date(year, month, 1);
-    const endOfMonth = new Date(year, month + 1, 0);
+    const startOfMonth = new Date(year, selectedMonth, 1);
+    const endOfMonth = new Date(year, selectedMonth + 1, 0);
 
     const { data: entries, error } = await supabase
       .from("time_entries")
@@ -108,8 +117,31 @@ export default function ExportPdfButton({ user }) {
   };
 
   return (
-    <Button variant="outlined" onClick={handleExport} sx={{ mb: 2 }}>
-      Export do PDF
-    </Button>
+    <div
+      style={{
+        display: "flex",
+        gap: "1rem",
+        alignItems: "center",
+        marginBottom: "1rem",
+      }}
+    >
+      <FormControl size="small">
+        <InputLabel>Měsíc</InputLabel>
+        <Select
+          value={selectedMonth}
+          label="Měsíc"
+          onChange={(e) => setSelectedMonth(e.target.value)}
+        >
+          {Array.from({ length: 12 }).map((_, i) => (
+            <MenuItem key={i} value={i}>
+              {format(new Date(2023, i, 1), "LLLL", { locale: cs })}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <Button variant="outlined" onClick={handleExport}>
+        Export do PDF
+      </Button>
+    </div>
   );
 }
