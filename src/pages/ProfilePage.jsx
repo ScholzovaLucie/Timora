@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function ProfilePage({ session }) {
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
@@ -28,14 +29,17 @@ export default function ProfilePage({ session }) {
       const { data: userData } = await supabase.auth.getUser();
       setEmail(userData.user.email);
 
-      const { data: settings, error } = await supabase
-        .from("user_settings")
-        .select("hourly_rate")
-        .eq("user_id", userData.user.id)
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userData.user.id)
         .single();
+      console.log(profile);
 
-      if (!error && settings) {
-        setHourlyRate(settings.hourly_rate || "");
+      if (profile && !error) {
+        setName(profile.name || "");
+        console.log(profile.hourly_rate);
+        setHourlyRate(profile.hourly_rate || "");
       }
 
       setLoading(false);
@@ -47,12 +51,15 @@ export default function ProfilePage({ session }) {
   const handleSave = async () => {
     const userId = session.user.id;
 
-    const { error } = await supabase.from("user_settings").upsert({
-      user_id: userId,
-      hourly_rate: parseFloat(hourlyRate),
-    });
+    const [settingsRes, profileRes] = await Promise.all([
+      supabase.from("profiles").upsert({
+        id: userId,
+        hourly_rate: parseFloat(hourlyRate),
+        name,
+      }),
+    ]);
 
-    if (error) {
+    if (settingsRes.error || profileRes.error) {
       setMessage({ type: "error", text: "Nepodařilo se uložit." });
     } else {
       setMessage({ type: "success", text: "Úspěšně uloženo." });
@@ -75,6 +82,12 @@ export default function ProfilePage({ session }) {
         </Typography>
 
         <Stack spacing={2}>
+          <TextField
+            label="Jméno"
+            value={name}
+            fullWidth
+            onChange={(e) => setName(e.target.value)}
+          />
           <TextField label="E-mail" value={email} disabled fullWidth />
           <TextField
             label="Hodinová sazba (Kč/h)"

@@ -107,7 +107,7 @@ export default function TimerWidget({ user, tasks }) {
   };
 
   return (
-    <Paper sx={{ p: 3, mb: 4, width: "100%" }} elevation={4}>
+    <Paper sx={{ p: 3, mb: 4, width: "100%" }} align="center" elevation={4}>
       <Stack spacing={2}>
         <Typography variant="h6">Časomíra</Typography>
         <FormControl fullWidth>

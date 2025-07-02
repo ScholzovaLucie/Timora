@@ -68,7 +68,7 @@ export default function StatsOverview({ user }) {
 
   return (
     <Paper sx={{ p: 3, mb: 4, width: "100%" }} elevation={4}>
-      <Typography variant="h6" gutterBottom>
+      <Typography variant="h6" gutterBottom align="center">
         Odpracováno za posledních 7 dní
       </Typography>
       {loading ? (

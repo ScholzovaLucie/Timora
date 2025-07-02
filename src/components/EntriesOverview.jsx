@@ -41,9 +41,9 @@ export default function EntriesOverview({ user }) {
           .order("start_time", { ascending: false }),
 
         supabase
-          .from("user_settings")
+          .from("profiles")
           .select("hourly_rate")
-          .eq("user_id", user.id)
+          .eq("id", user.id)
           .single(),
       ]);
 
@@ -102,22 +102,40 @@ export default function EntriesOverview({ user }) {
   const formatCurrency = (amount) => `${amount} Kč`;
 
   return (
-    <Paper sx={{ p: 3, mb: 4, width: "100%" }} elevation={4}>
-      <Typography variant="h6" gutterBottom>
+    <Paper
+      sx={{
+        p: 4,
+        mb: 4,
+        width: "100%",
+      }}
+      elevation={4}
+    >
+      <Typography variant="h6" gutterBottom align="center">
         Přehled záznamů
       </Typography>
 
-      <Stack direction="row" spacing={4} sx={{ mb: 2 }}>
-        <Typography variant="body1">
-          Dnes: <strong>{formatDuration(summary.today)}</strong>
-        </Typography>
-        <Typography variant="body1">
-          Tento měsíc: <strong>{formatDuration(summary.month)}</strong>
-        </Typography>
-        <Typography variant="body1">
-          Výdělek tento měsíc:{" "}
-          <strong>{formatCurrency(summary.monthEarnings)}</strong>
-        </Typography>
+      <Stack
+        direction="row"
+        spacing={4}
+        sx={{
+          mb: 2,
+          display: "flex",
+          alignContent: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Stack direction="column">
+          <Typography variant="body1">Dnes</Typography>
+          <Typography variant="body1">
+            <strong>{formatDuration(summary.today)}</strong>
+          </Typography>
+        </Stack>
+        <Stack direction="column">
+          <Typography variant="body1">Tento měsíc</Typography>
+          <Typography variant="body1">
+            <strong>{formatDuration(summary.month)}</strong>
+          </Typography>
+        </Stack>
       </Stack>
 
       {loading ? (
@@ -125,42 +143,44 @@ export default function EntriesOverview({ user }) {
           <CircularProgress />
         </Box>
       ) : (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Úkol</TableCell>
-              <TableCell>Začátek</TableCell>
-              <TableCell>Konec</TableCell>
-              <TableCell>Trvání</TableCell>
-              <TableCell>Výdělek</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {entries.map((entry) => {
-              const earning =
-                ((entry.duration_seconds || 0) / 3600) * hourlyRate;
-              return (
-                <TableRow key={entry.id}>
-                  <TableCell>{entry.task?.name || "Neznámý"}</TableCell>
-                  <TableCell>
-                    {entry.start_time
-                      ? format(new Date(entry.start_time), "dd.MM.yyyy HH:mm")
-                      : "—"}
-                  </TableCell>
-                  <TableCell>
-                    {entry.end_time
-                      ? format(new Date(entry.end_time), "dd.MM.yyyy HH:mm")
-                      : "—"}
-                  </TableCell>
-                  <TableCell>
-                    {formatDuration(entry.duration_seconds || 0)}
-                  </TableCell>
-                  <TableCell>{formatCurrency(earning.toFixed(0))}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <Box sx={{ overflow: "auto", maxHeight: "300px" }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Úkol</TableCell>
+                <TableCell>Začátek</TableCell>
+                <TableCell>Konec</TableCell>
+                <TableCell>Trvání</TableCell>
+                <TableCell>Výdělek</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {entries.map((entry) => {
+                const earning =
+                  ((entry.duration_seconds || 0) / 3600) * hourlyRate;
+                return (
+                  <TableRow key={entry.id}>
+                    <TableCell>{entry.task?.name || "Neznámý"}</TableCell>
+                    <TableCell>
+                      {entry.start_time
+                        ? format(new Date(entry.start_time), "dd.MM.yyyy HH:mm")
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {entry.end_time
+                        ? format(new Date(entry.end_time), "dd.MM.yyyy HH:mm")
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {formatDuration(entry.duration_seconds || 0)}
+                    </TableCell>
+                    <TableCell>{formatCurrency(earning.toFixed(0))}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Box>
       )}
     </Paper>
   );

@@ -157,7 +157,9 @@ export default function TaskList({ user }) {
         alignItems="center"
         mb={2}
       >
-        <Typography variant="h5">Moje úkoly</Typography>
+        <Typography variant="h5" align="center">
+          Moje úkoly
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -170,7 +172,11 @@ export default function TaskList({ user }) {
       {tasks.length === 0 ? (
         <Typography variant="body1">Nemáš žádné úkoly.</Typography>
       ) : (
-        <Grid container spacing={2}>
+        <Grid
+          container
+          spacing={2}
+          sx={{ display: "flex", justifyContent: "center" }}
+        >
           {tasks.map((task) => (
             <Grid item xs={12} sm={6} md={4} key={task.id}>
               <Card>

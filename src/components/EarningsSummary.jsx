@@ -31,9 +31,9 @@ export default function EarningsSummary({ user }) {
 
       const [settingsRes, entriesRes] = await Promise.all([
         supabase
-          .from("user_settings")
+          .from("profiles")
           .select("hourly_rate")
-          .eq("user_id", user.id)
+          .eq("id", user.id)
           .single(),
         supabase
           .from("time_entries")
@@ -73,7 +73,7 @@ export default function EarningsSummary({ user }) {
   }, [user.id, refreshKey]);
 
   return (
-    <Paper sx={{ p: 3, mb: 4, width: "100%" }} elevation={4}>
+    <Paper sx={{ p: 3, mb: 4, width: "100%" }} align="center" elevation={4}>
       <Typography variant="h6" gutterBottom>
         Výdělek
       </Typography>
