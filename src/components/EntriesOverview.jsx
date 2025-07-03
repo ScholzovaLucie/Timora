@@ -1,3 +1,5 @@
+// src/components/EntriesOverview.jsx
+
 import { useEffect, useState } from "react";
 import {
   Paper,
@@ -10,7 +12,23 @@ import {
   CircularProgress,
   Box,
   Stack,
+  IconButton,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
 } from "@mui/material";
+import { Edit, Delete, Add } from "@mui/icons-material";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import {
+  LocalizationProvider,
+  DatePicker,
+  DateTimePicker,
+} from "@mui/x-date-pickers";
+import { cs } from "date-fns/locale";
 import { supabase } from "../lib/supabaseClient";
 import { format } from "date-fns";
 import { useDataRefresh } from "../contexts/DataRefreshContext";
@@ -19,25 +37,46 @@ export default function EntriesOverview({ user }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hourlyRate, setHourlyRate] = useState(0);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [summary, setSummary] = useState({
     today: 0,
     month: 0,
     monthEarnings: 0,
   });
 
-  const { refreshKey } = useDataRefresh();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [tasks, setTasks] = useState([]);
+
+  const { refreshKey, refresh } = useDataRefresh();
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !selectedMonth) return;
 
     const fetchData = async () => {
-      const [entriesRes, settingsRes] = await Promise.all([
+      const startOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        1
+      );
+      const endOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth() + 1,
+        0,
+        23,
+        59,
+        59
+      );
+
+      const [entriesRes, settingsRes, tasksRes] = await Promise.all([
         supabase
           .from("time_entries")
           .select(
-            "id, start_time, end_time, duration_seconds, task:tasks(name)"
+            "id, start_time, end_time, duration_seconds, task_id, task:tasks(name)"
           )
           .eq("user_id", user.id)
+          .gte("start_time", startOfMonth.toISOString())
+          .lte("start_time", endOfMonth.toISOString())
           .order("start_time", { ascending: false }),
 
         supabase
@@ -45,22 +84,25 @@ export default function EntriesOverview({ user }) {
           .select("hourly_rate")
           .eq("id", user.id)
           .single(),
+
+        supabase
+          .from("tasks")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .order("name", { ascending: true }),
       ]);
 
-      if (entriesRes.error) {
-        console.error("Chyba při načítání záznamů:", entriesRes.error.message);
-      } else {
+      if (!entriesRes.error) {
         setEntries(entriesRes.data);
         computeSummary(entriesRes.data, settingsRes.data?.hourly_rate || 0);
       }
 
-      if (settingsRes.error) {
-        console.error(
-          "Chyba při načítání hodinovky:",
-          settingsRes.error.message
-        );
-      } else {
+      if (!settingsRes.error) {
         setHourlyRate(settingsRes.data?.hourly_rate || 0);
+      }
+
+      if (!tasksRes.error) {
+        setTasks(tasksRes.data);
       }
 
       setLoading(false);
@@ -70,28 +112,28 @@ export default function EntriesOverview({ user }) {
       const today = new Date();
       const startOfDay = new Date(today);
       startOfDay.setHours(0, 0, 0, 0);
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const startOfMonth = new Date(
+        selectedMonth.getFullYear(),
+        selectedMonth.getMonth(),
+        1
+      );
 
       let todaySeconds = 0;
       let monthSeconds = 0;
 
       data.forEach((e) => {
         const start = new Date(e.start_time);
-        if (start >= startOfDay) todaySeconds += e.duration_seconds || 0;
+        if (start >= startOfDay && start <= new Date())
+          todaySeconds += e.duration_seconds || 0;
         if (start >= startOfMonth) monthSeconds += e.duration_seconds || 0;
       });
 
       const monthEarnings = ((monthSeconds / 3600) * rate).toFixed(0);
-
-      setSummary({
-        today: todaySeconds,
-        month: monthSeconds,
-        monthEarnings,
-      });
+      setSummary({ today: todaySeconds, month: monthSeconds, monthEarnings });
     };
 
     fetchData();
-  }, [user.id, refreshKey]);
+  }, [user.id, refreshKey, selectedMonth]);
 
   const formatDuration = (s) => {
     const h = Math.floor(s / 3600);
@@ -101,42 +143,119 @@ export default function EntriesOverview({ user }) {
 
   const formatCurrency = (amount) => `${amount} Kč`;
 
+  const handleEdit = (entry) => {
+    setEditingEntry({
+      ...entry,
+      start_time: new Date(entry.start_time),
+      end_time: new Date(entry.end_time),
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (entryId) => {
+    await supabase.from("time_entries").delete().eq("id", entryId);
+    refresh();
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingEntry(null);
+  };
+
+  const handleSave = async () => {
+    if (
+      !editingEntry.task_id ||
+      !editingEntry.start_time ||
+      !editingEntry.end_time
+    )
+      return;
+
+    const duration = Math.round(
+      (editingEntry.end_time - editingEntry.start_time) / 1000
+    );
+
+    let result;
+    if (editingEntry.id) {
+      result = await supabase
+        .from("time_entries")
+        .update({
+          start_time: editingEntry.start_time.toISOString(),
+          end_time: editingEntry.end_time.toISOString(),
+          duration_seconds: duration,
+          task_id: editingEntry.task_id,
+        })
+        .eq("id", editingEntry.id);
+    } else {
+      result = await supabase.from("time_entries").insert([
+        {
+          user_id: user.id,
+          start_time: editingEntry.start_time.toISOString(),
+          end_time: editingEntry.end_time.toISOString(),
+          duration_seconds: duration,
+          task_id: editingEntry.task_id,
+        },
+      ]);
+    }
+
+    if (result.error) {
+      console.error("Nepodařilo se uložit záznam:", result.error.message);
+      return;
+    }
+
+    handleDialogClose();
+    refresh(); // spustí nové načtení
+  };
+
   return (
-    <Paper
-      sx={{
-        p: 4,
-        mb: 4,
-        width: "100%",
-      }}
-      elevation={4}
-    >
+    <Paper sx={{ p: 4, mb: 4, width: "100%" }} elevation={4}>
       <Typography variant="h6" gutterBottom align="center">
         Přehled záznamů
       </Typography>
 
-      <Stack
-        direction="row"
-        spacing={4}
-        sx={{
-          mb: 2,
-          display: "flex",
-          alignContent: "center",
-          justifyContent: "center",
-        }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={cs}>
+          <DatePicker
+            views={["year", "month"]}
+            label="Vyber měsíc"
+            value={selectedMonth}
+            onChange={(newValue) => setSelectedMonth(newValue)}
+            disableFuture
+            minDate={new Date(2020, 0)}
+            sx={{ width: 200 }}
+          />
+        </LocalizationProvider>
+      </Box>
+
+      <Stack direction="row" spacing={4} justifyContent="center" mb={2}>
         <Stack direction="column">
-          <Typography variant="body1">Dnes</Typography>
-          <Typography variant="body1">
-            <strong>{formatDuration(summary.today)}</strong>
-          </Typography>
+          <Typography>Dnes</Typography>
+          <strong>{formatDuration(summary.today)}</strong>
         </Stack>
         <Stack direction="column">
-          <Typography variant="body1">Tento měsíc</Typography>
-          <Typography variant="body1">
-            <strong>{formatDuration(summary.month)}</strong>
-          </Typography>
+          <Typography>Vybraný měsíc</Typography>
+          <strong>{formatDuration(summary.month)}</strong>
+        </Stack>
+        <Stack direction="column">
+          <Typography>Výdělek</Typography>
+          <strong>{formatCurrency(summary.monthEarnings)}</strong>
         </Stack>
       </Stack>
+
+      <Button
+        variant="contained"
+        startIcon={<Add />}
+        onClick={() => {
+          setEditingEntry({
+            start_time: new Date(),
+            end_time: new Date(),
+            task_id: tasks[0]?.id || null,
+          });
+          setDialogOpen(true);
+        }}
+        sx={{ mb: 2 }}
+      >
+        Přidat záznam
+      </Button>
 
       {loading ? (
         <Box display="flex" justifyContent="center" mt={2}>
@@ -152,6 +271,7 @@ export default function EntriesOverview({ user }) {
                 <TableCell>Konec</TableCell>
                 <TableCell>Trvání</TableCell>
                 <TableCell>Výdělek</TableCell>
+                <TableCell></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -175,6 +295,14 @@ export default function EntriesOverview({ user }) {
                       {formatDuration(entry.duration_seconds || 0)}
                     </TableCell>
                     <TableCell>{formatCurrency(earning.toFixed(0))}</TableCell>
+                    <TableCell>
+                      <IconButton onClick={() => handleEdit(entry)}>
+                        <Edit />
+                      </IconButton>
+                      <IconButton onClick={() => handleDelete(entry.id)}>
+                        <Delete />
+                      </IconButton>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -182,6 +310,58 @@ export default function EntriesOverview({ user }) {
           </Table>
         </Box>
       )}
+
+      <Dialog open={dialogOpen} onClose={handleDialogClose}>
+        <DialogTitle>
+          {editingEntry?.id ? "Upravit záznam" : "Přidat záznam"}
+        </DialogTitle>
+        <DialogContent>
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={cs}>
+            <DateTimePicker
+              label="Začátek"
+              value={editingEntry?.start_time || null}
+              onChange={(val) =>
+                setEditingEntry((e) => ({ ...e, start_time: val }))
+              }
+              sx={{ mt: 2, mb: 2 }}
+              fullWidth
+            />
+            <DateTimePicker
+              label="Konec"
+              value={editingEntry?.end_time || null}
+              onChange={(val) =>
+                setEditingEntry((e) => ({ ...e, end_time: val }))
+              }
+              sx={{ mb: 2 }}
+              fullWidth
+            />
+          </LocalizationProvider>
+          <TextField
+            select
+            label="Úkol"
+            value={editingEntry?.task_id || ""}
+            onChange={(e) =>
+              setEditingEntry((prev) => ({
+                ...prev,
+                task_id: parseInt(e.target.value, 10),
+              }))
+            }
+            fullWidth
+          >
+            {tasks.map((task) => (
+              <MenuItem key={task.id} value={task.id}>
+                {task.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDialogClose}>Zrušit</Button>
+          <Button onClick={handleSave} variant="contained">
+            Uložit
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }
